@@ -1,0 +1,148 @@
+{
+    "log": {
+        //"access": "/dev/stdout",
+        //"error": "/dev/stderr",
+        "loglevel": "warn"
+    },
+    "inbounds": [
+        {
+            "tag": "all-in",
+            "port": 12345,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "network": "tcp,udp",
+                "followRedirect": true
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "tproxy": "tproxy",
+                    "mark": 1
+                }
+            }
+        },
+        {
+            "port": 12346,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "network": "tcp",
+                "followRedirect": true,
+                "mark": 1
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            },
+            "tag": "redirect-in"
+        },
+        {
+            "tag": "socks-in",
+            "port": 1080,
+            "listen": "0.0.0.0",
+            "protocol": "socks",
+            "settings": {
+                "udp": true
+            },
+            "sniffing": {
+                "destOverride": [
+                    "http",
+                    "tls"
+                ],
+                "enabled": true,
+                "routeOnly": false
+            }
+        },
+        {
+            "tag": "http-in",
+            "port": 1081,
+            "listen": "0.0.0.0",
+            "protocol": "http"
+        }
+    ],
+    "outbounds": [
+        {
+            "tag": "vless-out",
+            "protocol": "vless",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "<domain>",
+                        "port": 443,
+                        "users": [
+                            {
+                                "id": "<userId>",
+                                "encryption": "none",
+                                "flow": "xtls-rprx-vision"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 2
+                },
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "show": false,
+                    "fingerprint": "firefox",
+                    "serverName": "<domain>",
+                    "publicKey": "<publicKey>",
+                    "shortId": "<shortId, MUST HAVE>",
+                    "spiderX": "/"
+                }
+            }
+        },
+        {
+            "tag": "direct",
+            "protocol": "freedom"
+        },
+        {
+            "tag": "block",
+            "protocol": "blackhole"
+        }
+    ],
+    "routing": {
+        "rules": [
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:private",
+                    "geosite:ru-available-only-inside",
+                    "geosite:category-gov-ru",
+                    "regexp:.*\\.ru$",
+                    "regexp:.*\\.local\\.encamy\\.com$"
+                ],
+                "outboundTag": "direct"
+            },
+            {
+                "type": "field",
+                "ip": [
+                    "geoip:cn",
+                    "geoip:private"
+                ],
+                "outboundTag": "direct"
+            },
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:discord"
+                ],
+                "outboundTag": "vless-out"
+            }
+        ],
+        "domainStrategy": "AsIs"
+    }
+}

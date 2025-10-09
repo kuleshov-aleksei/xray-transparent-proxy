@@ -1,0 +1,153 @@
+{
+    "log": {
+        "access": "/dev/stdout",
+        "error": "/dev/stderr",
+        "loglevel": "info"
+    },
+    "inbounds": [
+        {
+            "tag": "all-in",
+            "port": 12345,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "network": "tcp,udp",
+                "followRedirect": true
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "tproxy": "tproxy",
+                    "mark": 1
+                }
+            }
+        },
+        {
+            "tag": "socks-in",
+            "port": 1080,
+            "listen": "0.0.0.0",
+            "protocol": "socks",
+            "settings": {
+                "udp": true
+            },
+            "sniffing": {
+                "destOverride": [
+                    "http",
+                    "tls"
+                ],
+                "enabled": true,
+                "routeOnly": false
+            }
+        },
+        {
+            "tag": "http-in",
+            "port": 1081,
+            "listen": "0.0.0.0",
+            "protocol": "http"
+        }
+    ],
+    "outbounds": [
+        {
+            "tag": "vless-out",
+            "protocol": "vless",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "<domain>",
+                        "port": 443,
+                        "users": [
+                            {
+                                "id": "<userId>",
+                                "encryption": "none",
+                                "flow": "xtls-rprx-vision"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 2
+                },
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "show": false,
+                    "fingerprint": "firefox",
+                    "serverName": "<domain>",
+                    "publicKey": "<publicKey>",
+                    "shortId": "<shortId, MUST HAVE>",
+                    "spiderX": "/"
+                }
+            }
+        },
+        {
+            "tag": "direct",
+            "protocol": "freedom"
+        },
+        {
+            "tag": "block",
+            "protocol": "blackhole"
+        }
+    ],
+    "routing": {
+        "domainStrategy": "AsIs",
+        "rules": [
+            {
+                "domain": [
+                    "geosite:private"
+                ],
+                "outboundTag": "direct",
+                "type": "field"
+            },
+            {
+                "ip": [
+                    "geoip:private"
+                ],
+                "outboundTag": "direct",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:ru-blocked",
+                    "geosite:discord",
+                    "geosite:youtube",
+                    "geosite:openai",
+                    "geosite:twitter"
+                ],
+                "outboundTag": "vless-out",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:ru-available-only-inside",
+                    "geosite:category-gov-ru",
+                    "regexp:.*\\.ru$"
+                ],
+                "outboundTag": "direct",
+                "type": "field"
+            },
+            {
+                "ip": [
+                    "34.0.0.0/16",
+                    "35.207.0.0/16",
+                    "35.214.0.0/16",
+                    "35.215.0.0/16",
+                    "35.213.0.0/16",
+                    "35.217.0.0/16",
+                    "35.219.0.0/16",
+                    "66.22.0.0/16"
+                ],
+                "outboundTag": "vless-out",
+                "type": "field",
+                "x-info": "discord"
+            }
+        ]
+    }
+}
