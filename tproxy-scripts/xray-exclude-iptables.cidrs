@@ -1,0 +1,8 @@
+# CIDRs excluded from processing
+10.0.0.0/8
+192.168.0.0/16
+# Multicast
+224.0.0/4
+240.0.0.0/4
+# For some reason, spotify spams with packets in this range
+172.16.0.0/12 

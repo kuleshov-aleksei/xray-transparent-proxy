@@ -1,0 +1,4 @@
+data/geoip.dat
+data/geosite.dat
+xray-configs/*.json
+!xray-configs/*.json.example

@@ -1,0 +1,5 @@
+# TCP-ports, excluded from processing
+# Example:
+# 22     # SSH
+# 443    # HTTPS
+# 8080

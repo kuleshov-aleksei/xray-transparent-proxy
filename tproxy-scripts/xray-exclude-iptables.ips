@@ -1,0 +1,5 @@
+# IP-addresses, excluded from processing
+# examples:
+# 8.8.8.8
+# 1.1.1.1
+255.255.255.255
