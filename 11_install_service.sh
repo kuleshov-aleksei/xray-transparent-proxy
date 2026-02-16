@@ -15,10 +15,12 @@ if [[ ! -f "$1" ]]; then
    exit 1
 fi
 
+mkdir -p /usr/local/etc/xray/
 cp $1 /usr/local/etc/xray/v2ray-extended.json
 mkdir -p /etc/systemd/system/xray.service.d/
+
+export XRAY_PATH=$(whereis xray | cut -d' ' -f 2)
+envsubst < service-configs/90-custom-override-xray.conf.template > service-configs/90-custom-override-xray.conf
 cp service-configs/90-custom-override-xray.conf /etc/systemd/system/xray.service.d/
 systemctl daemon-reload
 systemctl restart xray.service
-
-cp service-configs/10_sudoers_toggle /etc/sudoers.d/10_tproxy_toggle

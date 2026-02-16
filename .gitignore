@@ -2,3 +2,4 @@ data/geoip.dat
 data/geosite.dat
 xray-configs/*.json
 !xray-configs/*.json.example
+service-configs/90-custom-override-xray.conf

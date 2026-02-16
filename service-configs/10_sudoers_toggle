@@ -1,1 +1,0 @@
-encamy ALL=(root) NOPASSWD: /home/encamy/vpn/tproxy-scripts/toggle-transparent-proxy.sh
