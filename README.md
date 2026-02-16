@@ -14,12 +14,20 @@ https://github.com/runetfreedom/russia-v2ray-rules-dat
 
 # Usage
 
-1. Install xray (not v2ray!)
+1. Install xray (not v2ray!) from Xray-install or AUR
+    `bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata`
 2. Download geoip db using scripts 01_download_geoip.sh + 02_copy_geoip.sh
 3. Prepare special service user using 10_create_user.sh
 4. Install service (systemctl service override + copy configs + custom sudoers entry)
     - Be aware: sudoers entry allows user to execute toggle config as root without password! Nothing prevents this user to change content of this script and execute whatever he wants to. But I'm ok with this security risk (waybar should be able to execute this script)
 5. Enable waybar integration / Start or Stop xray service manually / Execute scripts in tproxy-scripts/
+
+## Optional
+
+Set system proxy in current terminal using
+```
+source 99_set_proxy.sh
+```
 
 # Waybar
 

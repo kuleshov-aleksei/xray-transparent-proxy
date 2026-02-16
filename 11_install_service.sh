@@ -5,8 +5,18 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-#cp xray-configs/v2ray-extended.json /usr/local/etc/xray/v2ray-extended.json
-cp xray-configs/v2ray-de.encamy.com.json /usr/local/etc/xray/v2ray-extended.json
+if [ -z "$1" ]; then
+   echo "Error: xray config argument is empty. Usage $0 xray-configs/my-config.json"
+   exit 1
+fi
+
+if [[ ! -f "$1" ]]; then
+   echo "Xray config does not exist"
+   exit 1
+fi
+
+cp $1 /usr/local/etc/xray/v2ray-extended.json
+mkdir -p /etc/systemd/system/xray.service.d/
 cp service-configs/90-custom-override-xray.conf /etc/systemd/system/xray.service.d/
 systemctl daemon-reload
 systemctl restart xray.service
