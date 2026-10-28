@@ -7,7 +7,7 @@ if [ -z "${MARK_ID}" ]; then
 fi
 
 # Check if TProxy is currently active
-RULE_ACTIVE=$(ip rule list | grep -E "fwmark 0x$MARK_ID lookup $ROUTE_TABLE_ID")
+RULE_ACTIVE=$(ip rule list | grep -E "0x$MARK_ID|table $ROUTE_TABLE_ID")
 if [ -z "$RULE_ACTIVE" ]; then
     echo "⚠️ TProxy OFF"
 else
