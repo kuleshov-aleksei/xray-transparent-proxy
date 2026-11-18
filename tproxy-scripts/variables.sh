@@ -13,6 +13,8 @@ XRAY_REDIRECT_PORT=12346
 
 XRAY_CHAIN="XRAY"
 XRAY_SELF_CHAIN="XRAY_SELF"
+XRAY_LOCAL_CHAIN="XRAY_LOCAL"     # nat: local (OUTPUT) TCP capture
+XRAY_QUIC_CHAIN="XRAY_QUIC"       # filter: UID bypass + QUIC/HTTP3 block
 
 LAN_IF=$(ip route | awk '/default/ {print $5}' | head -n1)
 LOCAL_CIDRS=$(ip -o -f inet addr show "$LAN_IF" | awk '{print $4}')
@@ -32,9 +34,26 @@ CUSTOM_BYPASS_CIDRS=($(printf "%s\n" "${cidrs_from_env[@]}" "${cidrs_from_file[@
 CUSTOM_BYPASS_IPS=($(printf "%s\n" "${ips_from_env[@]}" "${ips_from_file[@]}" | sort -u))
 CUSTOM_BYPASS_PORTS=($(printf "%s\n" "${ports_from_env[@]}" "${ports_from_file[@]}" | sort -u))
 
+# Users whose traffic must never be intercepted (local DNS resolvers etc.).
+# Missing users are skipped silently: dnsmc and doh-client are both optional.
+PROXY_BYPASS_USERS=${PROXY_BYPASS_USERS-"dnsmc doh-client"}
+PROXY_BYPASS_UIDS=()
+for user in $PROXY_BYPASS_USERS; do
+    if uid=$(id -u "$user" 2>/dev/null); then
+        PROXY_BYPASS_UIDS+=("$uid")
+    fi
+done
+
+# QUIC/HTTP3 cannot be transparently proxied for local sockets (TPROXY only
+# works in PREROUTING), so reject it and let apps fall back to TCP via xray.
+BLOCK_QUIC=${BLOCK_QUIC:-1}
+QUIC_PORTS=${QUIC_PORTS:-"443"}
+
 echo "[INFO] Loaded exclusions:"
 echo "  ├─ CIDRs: ${#CUSTOM_BYPASS_CIDRS[@]}"
 echo "  ├─ IPs:   ${#CUSTOM_BYPASS_IPS[@]}"
-echo "  └─ Ports: ${#CUSTOM_BYPASS_PORTS[@]}"
+echo "  ├─ Ports: ${#CUSTOM_BYPASS_PORTS[@]}"
+echo "  ├─ Users: ${PROXY_BYPASS_USERS} (found UIDs: ${PROXY_BYPASS_UIDS[*]:-none})"
+echo "  └─ QUIC block: ${BLOCK_QUIC} (ports: ${QUIC_PORTS})"
 
 echo "[INFO] Done"

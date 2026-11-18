@@ -49,6 +49,22 @@ iptables -t mangle -A PREROUTING -j XRAY_DISABLED
 echo "[INFO] Clearing custom"
 iptables -t nat -D OUTPUT -p tcp -m owner ! --uid-owner $TPROXY_UID -j REDIRECT --to-ports $XRAY_REDIRECT_PORT 2>/dev/null && echo "[OK] Cleared" || echo "[WARN] Nothing to clear"
 
+echo "[INFO] Removing local capture chain ($XRAY_LOCAL_CHAIN)..."
+iptables -t nat -D OUTPUT -j $XRAY_LOCAL_CHAIN 2>/dev/null && echo "[OK] $XRAY_LOCAL_CHAIN removed from OUTPUT" || echo "[WARN] $XRAY_LOCAL_CHAIN not found in OUTPUT"
+if iptables -t nat -F $XRAY_LOCAL_CHAIN 2>/dev/null && iptables -t nat -X $XRAY_LOCAL_CHAIN 2>/dev/null; then
+    echo "[OK] $XRAY_LOCAL_CHAIN deleted"
+else
+    echo "[WARN] $XRAY_LOCAL_CHAIN could not be deleted (missing or still referenced)"
+fi
+
+echo "[INFO] Removing QUIC block chain ($XRAY_QUIC_CHAIN)..."
+iptables -t filter -D OUTPUT -j $XRAY_QUIC_CHAIN 2>/dev/null && echo "[OK] $XRAY_QUIC_CHAIN removed from OUTPUT" || echo "[WARN] $XRAY_QUIC_CHAIN not found in OUTPUT"
+if iptables -t filter -F $XRAY_QUIC_CHAIN 2>/dev/null && iptables -t filter -X $XRAY_QUIC_CHAIN 2>/dev/null; then
+    echo "[OK] $XRAY_QUIC_CHAIN deleted"
+else
+    echo "[WARN] $XRAY_QUIC_CHAIN could not be deleted (missing or still referenced)"
+fi
+
 echo "[INFO] Adding exclusions into XRAY_DISABLED..."
 
 # System CIDRs (e.g., localhost and 10.x.x.x)

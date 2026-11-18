@@ -26,6 +26,19 @@ Usage:
  - Start or Stop xray service manually
  - Execute scripts in tproxy-scripts/
 
+## Traffic handling notes
+
+- Local TCP is captured through the `XRAY_LOCAL` nat chain. Loopback, LAN,
+  container (`10/8`, `172.16/12`, `192.168/16`), link-local and multicast
+  destinations are never proxied.
+- Traffic of local DNS resolvers (`dnsmc`, `doh-client`) and of xray itself is
+  never intercepted. Override the list with `PROXY_BYPASS_USERS="user1 user2"`.
+  Missing users are skipped silently.
+- QUIC/HTTP3 is rejected for locally generated traffic (`BLOCK_QUIC=1`,
+  `QUIC_PORTS="443"`), because TPROXY can only capture UDP in PREROUTING and
+  cannot intercept local sockets. Applications fall back to TCP via xray.
+  Set `BLOCK_QUIC=0` to disable.
+
 ## Optional
 
 Set system proxy in current terminal using
