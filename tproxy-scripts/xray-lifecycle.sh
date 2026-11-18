@@ -82,6 +82,34 @@ dns_resolvers_start() {
     return $failed
 }
 
+# Returns 0 when the transparent proxy is fully active: ip rule, local capture
+# chains, the DNS-enabled xray config and a running xray. Used by enable to bail
+# out early instead of rebuilding an already working setup.
+tproxy_is_enabled() {
+    local quic_jump=0
+
+    ip rule show 2>/dev/null \
+        | grep -qE "fwmark 0x$MARK_ID lookup $ROUTE_TABLE_ID" || return 1
+
+    iptables -t nat -S OUTPUT 2>/dev/null \
+        | grep -q -- "-j $XRAY_LOCAL_CHAIN" || return 1
+
+    # The QUIC chain must match the requested setting, so that changing
+    # BLOCK_QUIC forces a rebuild instead of silently keeping the old behaviour.
+    quic_jump=$(iptables -t filter -S OUTPUT 2>/dev/null \
+        | grep -c -- "-j $XRAY_QUIC_CHAIN" || true)
+    if [[ "$BLOCK_QUIC" == "1" ]]; then
+        (( quic_jump > 0 )) || return 1
+    else
+        (( quic_jump == 0 )) || return 1
+    fi
+
+    cmp -s "$XRAY_INSTALLED_CONFIG" "$XRAY_CONFIG_DNS" || return 1
+    systemctl is-active --quiet xray || return 1
+
+    return 0
+}
+
 # Restores the previous xray config after a failed installation.
 xray_rollback_config() {
     local backup="${XRAY_INSTALLED_CONFIG}.tproxy-backup"

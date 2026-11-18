@@ -13,6 +13,11 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+if tproxy_is_enabled; then
+    echo "[INFO] Transparent proxy is already enabled, nothing to do"
+    exit 0
+fi
+
 echo "[INFO] Setting iptables rules for enabling transparent proxy to xray..."
 
 # Tear down leftover rules only: keep the installed xray config and local DNS
