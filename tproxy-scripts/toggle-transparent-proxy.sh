@@ -13,18 +13,29 @@ if [ -z "${MARK_ID}" ]; then
     source $base_dir/variables.sh > /dev/null
 fi
 
-# Check if TProxy is currently active
+# The enable/disable scripts set `set -e` and an ERR trap for themselves. Run
+# them in a subshell so that (a) those settings do not leak into this script and
+# (b) a failing `pkill` below is not reported as a fatal script error.
 RULE_ACTIVE=$(ip rule list | grep -E "fwmark 0x$MARK_ID lookup $ROUTE_TABLE_ID")
+
 if [ -z "$RULE_ACTIVE" ]; then
     # TProxy is inactive, enable
     echo "Inactive, enabling"
-    source $base_dir/enable-transparent-proxy.sh
+    if ! ( source $base_dir/enable-transparent-proxy.sh ); then
+        echo "❌ TProxy enable failed"
+        pkill -RTMIN+9 waybar 2>/dev/null || true
+        exit 1
+    fi
     echo "🔒 TProxy ON"
-    pkill -RTMIN+9 waybar
 else
     # TProxy is active, disable
     echo "Active, disabling"
-    source $base_dir/disable-transparent-proxy.sh
+    if ! ( source $base_dir/disable-transparent-proxy.sh ); then
+        echo "❌ TProxy disable failed"
+        pkill -RTMIN+9 waybar 2>/dev/null || true
+        exit 1
+    fi
     echo "⚠️ TProxy OFF"
-    pkill -RTMIN+9 waybar
 fi
+
+pkill -RTMIN+9 waybar 2>/dev/null || true

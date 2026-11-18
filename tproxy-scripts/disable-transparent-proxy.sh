@@ -6,6 +6,7 @@ base_dir="$(dirname "$0")"
 if [ -z "${MARK_ID}" ]; then
     source $base_dir/variables.sh
 fi
+source $base_dir/xray-lifecycle.sh
 
 set -e
 trap 'echo "[FATAL] Failed at $LINENO"; exit 1' ERR
@@ -13,6 +14,13 @@ trap 'echo "[FATAL] Failed at $LINENO"; exit 1' ERR
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root" 
    exit 1
+fi
+
+# --cleanup-only is used by enable-transparent-proxy.sh: tear down rules but
+# leave the installed xray config and the local DNS resolver alone.
+CLEANUP_ONLY=0
+if [[ "${1:-}" == "--cleanup-only" ]]; then
+    CLEANUP_ONLY=1
 fi
 
 echo "[INFO] Reverting XRAY iptables and routing rules..."
@@ -42,9 +50,13 @@ iptables -t mangle -F $XRAY_SELF_CHAIN 2>/dev/null && echo "[OK] Chain $XRAY_SEL
 iptables -t mangle -F XRAY_ENABLED 2>/dev/null && echo "[OK] Chain XRAY_ENABLED cleared" || echo "[WARN] Chain XRAY_ENABLED does not exists"
 
 echo "[INFO] Creating or clearing XRAY_DISABLED for DROP by default..."
-iptables -t mangle -F XRAY_DISABLED 2>/dev/null || iptables -t mangle -N XRAY_DISABLED
-iptables -t mangle -D PREROUTING -j XRAY_DISABLED 2>/dev/null || true
-iptables -t mangle -A PREROUTING -j XRAY_DISABLED
+if (( ! CLEANUP_ONLY )); then
+    iptables -t mangle -F XRAY_DISABLED 2>/dev/null || iptables -t mangle -N XRAY_DISABLED
+    iptables -t mangle -D PREROUTING -j XRAY_DISABLED 2>/dev/null || true
+    iptables -t mangle -A PREROUTING -j XRAY_DISABLED
+else
+    echo "[INFO] Skipped (cleanup-only)"
+fi
 
 echo "[INFO] Clearing custom"
 iptables -t nat -D OUTPUT -p tcp -m owner ! --uid-owner $TPROXY_UID -j REDIRECT --to-ports $XRAY_REDIRECT_PORT 2>/dev/null && echo "[OK] Cleared" || echo "[WARN] Nothing to clear"
@@ -65,30 +77,46 @@ else
     echo "[WARN] $XRAY_QUIC_CHAIN could not be deleted (missing or still referenced)"
 fi
 
-echo "[INFO] Adding exclusions into XRAY_DISABLED..."
+if (( ! CLEANUP_ONLY )); then
+    echo "[INFO] Adding exclusions into XRAY_DISABLED..."
 
-# System CIDRs (e.g., localhost and 10.x.x.x)
-for cidr in $LOCAL_CIDRS 127.0.0.0/8; do
-    iptables -t mangle -A XRAY_DISABLED -d "$cidr" -j RETURN
-done
+    # System CIDRs (e.g., localhost and 10.x.x.x)
+    for cidr in $LOCAL_CIDRS 127.0.0.0/8; do
+        iptables -t mangle -A XRAY_DISABLED -d "$cidr" -j RETURN
+    done
 
-# IP-address exclusions
-for ip in "${CUSTOM_BYPASS_IPS[@]}"; do
-    iptables -t mangle -A XRAY_DISABLED -d "$ip" -j RETURN
-done
+    # IP-address exclusions
+    for ip in "${CUSTOM_BYPASS_IPS[@]}"; do
+        iptables -t mangle -A XRAY_DISABLED -d "$ip" -j RETURN
+    done
 
-# CIDRs-address exclusions
-for cidr in "${CUSTOM_BYPASS_CIDRS[@]}"; do
-    iptables -t mangle -A XRAY_DISABLED -d "$cidr" -j RETURN
-done
+    # CIDRs-address exclusions
+    for cidr in "${CUSTOM_BYPASS_CIDRS[@]}"; do
+        iptables -t mangle -A XRAY_DISABLED -d "$cidr" -j RETURN
+    done
 
-# TCP ports exclusions
-for port in "${CUSTOM_BYPASS_PORTS[@]}"; do
-    iptables -t mangle -A XRAY_DISABLED -p tcp --dport "$port" -j RETURN
-done
+    # TCP ports exclusions
+    for port in "${CUSTOM_BYPASS_PORTS[@]}"; do
+        iptables -t mangle -A XRAY_DISABLED -p tcp --dport "$port" -j RETURN
+    done
 
-# Default - DROP
-iptables -t mangle -A XRAY_DISABLED -j DROP
-echo "[OK] Chain XRAY_DISABLED added with exclusions and DROP by default"
+    # Default - DROP
+    iptables -t mangle -A XRAY_DISABLED -j DROP
+    echo "[OK] Chain XRAY_DISABLED added with exclusions and DROP by default"
+fi
 
 echo "[INFO] XRAY iptables and routing cleanup complete."
+
+if (( CLEANUP_ONLY )); then
+    echo "[INFO] Cleanup-only: xray config and local DNS resolver left untouched"
+else
+    echo "[INFO] Restoring the regular xray config..."
+    if xray_install_config "$XRAY_CONFIG_PLAIN"; then
+        dns_resolvers_start || echo "[WARN] Some local DNS units failed to start"
+        echo "[OK] Local DNS is served by the system resolver again"
+    else
+        echo "[ERROR] Could not restore the regular xray config"
+        dns_resolvers_start || echo "[WARN] Could not restore local DNS"
+        exit 1
+    fi
+fi

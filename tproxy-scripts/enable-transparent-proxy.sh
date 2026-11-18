@@ -3,6 +3,7 @@
 # https://github.com/El-medo/xray-gateway-installer/blob/main/template/xray-iptables.template.sh
 base_dir="$(dirname "$0")"
 source $base_dir/variables.sh
+source $base_dir/xray-lifecycle.sh
 
 set -e
 trap 'echo "[FATAL] Failed at $LINENO"; exit 1' ERR
@@ -14,12 +15,22 @@ fi
 
 echo "[INFO] Setting iptables rules for enabling transparent proxy to xray..."
 
-source $base_dir/disable-transparent-proxy.sh
+# Tear down leftover rules only: keep the installed xray config and local DNS
+# untouched until we take over port 53 below.
+source $base_dir/disable-transparent-proxy.sh --cleanup-only
 
 echo "[INFO] Clearing chain XRAY_DISABLED (if exists)..."
 iptables -t mangle -D PREROUTING -j XRAY_DISABLED 2>/dev/null || true
 iptables -t mangle -F XRAY_DISABLED 2>/dev/null
 iptables -t mangle -X XRAY_DISABLED 2>/dev/null && echo "[OK] XRAY_DISABLED chain deleted"
+
+echo "[INFO] Handing local DNS over to xray..."
+dns_resolvers_stop || echo "[WARN] Port 53 may still be busy, xray might fail to bind"
+if ! xray_install_config "$XRAY_CONFIG_DNS"; then
+    echo "[ERROR] Could not install the DNS-enabled xray config"
+    dns_resolvers_start || echo "[WARN] Could not restore local DNS"
+    exit 1
+fi
 
 echo "[INFO] Creating ip rule and routing tables..."
 ip rule add fwmark $MARK_ID table $ROUTE_TABLE_ID || {

@@ -16,6 +16,20 @@ XRAY_SELF_CHAIN="XRAY_SELF"
 XRAY_LOCAL_CHAIN="XRAY_LOCAL"     # nat: local (OUTPUT) TCP capture
 XRAY_QUIC_CHAIN="XRAY_QUIC"       # filter: UID bypass + QUIC/HTTP3 block
 
+# Repository layout (this file is sourced from tproxy-scripts/)
+REPO_ROOT="$(cd "$base_dir/.." && pwd)"
+XRAY_CONFIG_PLAIN="$REPO_ROOT/xray-configs/v2ray-extended.json"
+XRAY_CONFIG_DNS="$REPO_ROOT/xray-configs/v2ray-extended-dns.json"
+INSTALL_SERVICE_SCRIPT="$REPO_ROOT/11_install_service.sh"
+XRAY_INSTALLED_CONFIG="/usr/local/etc/xray/v2ray-extended.json"
+
+# Local DNS resolvers that must yield port 53 while the proxy is enabled.
+# They are stopped on enable, recorded in DNS_STATE_FILE and started again on
+# disable.
+LOCAL_DNS_UNITS=${LOCAL_DNS_UNITS-"dnsmc-client doh-client"}
+DNS_STATE_DIR="/var/lib/xray-transparent-proxy"
+DNS_STATE_FILE="$DNS_STATE_DIR/dns-resolvers"
+
 LAN_IF=$(ip route | awk '/default/ {print $5}' | head -n1)
 LOCAL_CIDRS=$(ip -o -f inet addr show "$LAN_IF" | awk '{print $4}')
 
@@ -54,6 +68,7 @@ echo "  ├─ CIDRs: ${#CUSTOM_BYPASS_CIDRS[@]}"
 echo "  ├─ IPs:   ${#CUSTOM_BYPASS_IPS[@]}"
 echo "  ├─ Ports: ${#CUSTOM_BYPASS_PORTS[@]}"
 echo "  ├─ Users: ${PROXY_BYPASS_USERS} (found UIDs: ${PROXY_BYPASS_UIDS[*]:-none})"
-echo "  └─ QUIC block: ${BLOCK_QUIC} (ports: ${QUIC_PORTS})"
+echo "  ├─ QUIC block: ${BLOCK_QUIC} (ports: ${QUIC_PORTS})"
+echo "  └─ Local DNS units: ${LOCAL_DNS_UNITS}"
 
 echo "[INFO] Done"
